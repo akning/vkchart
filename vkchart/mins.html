@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="utf-8" />
+		<title></title>
+		<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0;" name="viewport" />
+		<script type="text/javascript" src="script/jquery-1.9.1.min.js"></script>
+		<script type="text/javascript" src="script/moment.js"></script>
+		<script type="text/javascript" src="data.js"></script>
+		<script type="text/javascript" src="script/mins.js" ></script>
+	</head>
+
+	<body style="margin: 0 2px;">
+		<div id="vkContent" style="width: 100%;height: 300px; position: relative;border: 1px solid tomato; ">
+		</div>
+
+		<script type="text/javascript">
+			var chart = new MinsChart('vkContent');
+			var data = getQuote();
+			data.items = data.items.reverse();
+			chart.paint(data);
+		</script>
+
+	</body>
+
+</html>
