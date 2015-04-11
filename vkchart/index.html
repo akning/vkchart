@@ -6,22 +6,24 @@
 		<title></title>
 		<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0;" name="viewport" />
 		<script type="text/javascript" src="script/jquery-1.9.1.min.js"></script>
-		<script type="text/javascript" src="script/jgestures.min.js" ></script>
+		<script type="text/javascript" src="script/hidpi-canvas.js" ></script>
 		<script type="text/javascript" src="script/moment.js"></script>
 		<script type="text/javascript" src="data.js"></script>
-		<script type="text/javascript" src="script/kline.js" ></script>
+		<script type="text/javascript" src="script/vkchart.js" ></script>
 	</head>
 
-	<body style="margin: 0 2px;">
+	<body style="margin: 0 2px;background:#362A38;">
+		<div id="tip" style="text-align: center;line-height: 50px;color: wheat;">请在手机上查看</div>
 		<div id="vkContent" style="width: 100%;height: 300px; position: relative;border: 1px solid tomato; ">
 		</div>
 
 		<script type="text/javascript">
-			var chart = new KlineChart('vkContent');
+			var chart = new VKChart('vkContent');
 //			chart.options.dateTimeType='date';
 			var data = getQuote();
 			data.items = data.items.reverse();
-			chart.paint(data);
+//			chart.paint(data,VKChart.Type.kline);
+			chart.paint(data,VKChart.Type.mins);
 		</script>
 
 	</body>
