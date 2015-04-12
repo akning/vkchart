@@ -1,16 +1,23 @@
 function VKChart(contentId) {
-		this.contentId = contentId;
+		this.vkContent = $('#' + contentId);
 		this.ctx;
-		this.min = 0;
-		this.maxDiff = 0;
-		this.maxVolume = 0;
 		this.data = {
 			items: []
 		};
+		this.temp = {
+			startX: 0,
+			startTime: 0,
+			//显示的数据条数
+			dataShowCount: 15,
+			dataEndIndex: -1,
+			minPrice: 0,
+			maxDiff: 0,
+			maxVolume: 0,
+			maxCloseDiff: 0
+		};
 		this.allData;
-		var vkContent = $('#vkContent');
-		var contentWidth = vkContent.width();
-		var contentHeight = vkContent.height();
+		var contentWidth = this.vkContent.width();
+		var contentHeight = this.vkContent.height();
 		this.options = {
 			//显示的时间格式类型
 			dateTimeType: 'time',
@@ -38,8 +45,8 @@ function VKChart(contentId) {
 			normalColor: '#E67E65',
 			//左面的数字
 			yScalerFont: '10px 宋体',
-			yScalerFix: 2,
-			volumeHeight: 60
+			volumeHeight: 60,
+			volumeMarginTop: 7
 		};
 	}
 	/**
@@ -83,13 +90,6 @@ VKChart.Util = {
 		}
 	}
 }
-VKChart.Temp = {
-	startX: 0,
-	startTime: 0,
-	//显示的数据条数
-	dataShowCount: 15,
-	dataEndIndex: -1
-}
 VKChart.prototype = {
 	/**
 	 * 绘制
@@ -97,75 +97,69 @@ VKChart.prototype = {
 	 * @param {Object} type
 	 */
 	paint: function(data, type) {
-		this.init(data, type);
-		this.paintTopText();
-		this.paintTime();
-		if (type == VKChart.Type.mins) {
-			this.paintMins();
-		} else if (type == VKChart.Type.kline) {
-			this.paintKline();
-			this.bindEvent();
+		var vkChart=this;
+		vkChart.init();
+		vkChart.allData = data;
+		vkChart.repaint(data, type);
+		if (type == VKChart.Type.kline) {
+			vkChart.bindEvent();
 		}
-		this.paintVolume();
 	},
 	repaint: function(data, type) {
-		this.init(data, type);
-		this.paintTopText();
-		this.paintTime();
+		var vkChart = this;
+		vkChart.ctx.clearRect(0, vkChart.options.region.y, vkChart.options.region.width, vkChart.vkContent.height() - vkChart.options.region.y);
 		if (type == VKChart.Type.mins) {
-			this.paintMins();
+			vkChart.data = data;
 		} else if (type == VKChart.Type.kline) {
-			this.paintKline();
+			if (vkChart.temp.dataEndIndex == -1) {
+				vkChart.temp.dataEndIndex = data.items.length - 1;
+			}
+			vkChart.data.items = data.items.slice(vkChart.temp.dataEndIndex + 1 - vkChart.temp.dataShowCount, vkChart.temp.dataEndIndex + 1);
 		}
-		this.paintVolume();
+		vkChart.paintTopText();
+		vkChart.paintTime();
+		if (type == VKChart.Type.mins) {
+			vkChart.paintMins();
+		} else if (type == VKChart.Type.kline) {
+			vkChart.paintKline();
+		}
+		vkChart.paintVolume();
 	},
 	/**
 	 * 初始化
 	 * @param {Object} data
 	 * @param {Object} type
 	 */
-	init: function(data, type) {
-		var vkContent = $('#' + this.contentId);
-		vkContent.html("");
+	init: function() {
+		var vkChart = this;
+		vkChart.vkContent.html("");
 		//画布的大小不能在CSS中定义
 		var str = "<div id='vkY' style='display:none;z-index:1000;position: absolute;width: 1px;height:" + (this.options.region.height + this.options.volumeHeight) + "px;top:" + this.options.region.y + "px;background:" + this.options.tipColor + ";'></div>";
 		str = str + "<div id='vkX' style='display:none;z-index:1000;position: absolute;height: 1px;width:" + this.options.region.width + "px;left:" + this.options.region.x + "px;background:" + this.options.tipColor + ";'></div>";
-		str = str + "<canvas style='z-index: 999; position: absolute;' width='" + vkContent.width() + "' height='" + vkContent.height() + "'></canvas>";
-		vkContent.html(str);
-		var canvas = $("#" + this.contentId + " canvas")[0];
-		this.ctx = canvas.getContext('2d');
-		this.ctx.backgroundAlpha = 0;
-		if (type == VKChart.Type.mins) {
-			this.data = data;
-		} else if (type == VKChart.Type.kline) {
-			this.allData = data;
-			if (VKChart.Temp.dataEndIndex == -1) {
-				VKChart.Temp.dataEndIndex = data.items.length - 1;
-			}
-			this.data.items = data.items.slice(VKChart.Temp.dataEndIndex + 1 - VKChart.Temp.dataShowCount, VKChart.Temp.dataEndIndex + 1);
-		}
+		str = str + "<canvas style='z-index: 999; position: absolute;' width='" + vkChart.vkContent.width() + "' height='" + vkChart.vkContent.height() + "'></canvas>";
+		vkChart.vkContent.html(str);
+		var canvas = vkChart.vkContent.find("canvas")[0];
+		vkChart.ctx = canvas.getContext('2d');
+		vkChart.ctx.backgroundAlpha = 0;
 	},
 	/**
 	 * 画量
 	 */
 	paintVolume: function() {
-		var data = this.data;
-		var ctx = this.ctx;
-		var options = this.options;
-		var maxVolume = this.maxVolume;
-		$.each(data.items, function(i, item) {
-			var w = options.region.width / data.items.length;
-			var h = item.volume / maxVolume * options.volumeHeight - 7;
+		var vkChart = this;
+		$.each(vkChart.data.items, function(i, item) {
+			var w = vkChart.options.region.width / vkChart.data.items.length;
+			var h = item.volume / vkChart.temp.maxVolume * vkChart.options.volumeHeight - vkChart.options.volumeMarginTop;
 			var x = w * i + w * 0.1;
 			w = w * 0.8;
-			var y = options.volumeHeight - h + options.region.y + options.region.height;
+			var y = vkChart.options.volumeHeight - h + vkChart.options.region.y + vkChart.options.region.height;
 			var close = item.close;
-			var preClose = (i == 0 ? item.close : data.items[i - 1].close);
+			var preClose = (i == 0 ? item.close : vkChart.data.items[i - 1].close);
 			var isRise = close > preClose;
 			var isFall = close < preClose;
-			var color = isRise ? options.riseColor : (isFall ? options.fallColor : options.normalColor);
-			ctx.fillStyle = color;
-			ctx.fillRect(x, y, w, h);
+			var color = isRise ? vkChart.options.riseColor : (isFall ? vkChart.options.fallColor : vkChart.options.normalColor);
+			vkChart.ctx.fillStyle = color;
+			vkChart.ctx.fillRect(x, y, w, h);
 		});
 	},
 	/**
@@ -204,201 +198,183 @@ VKChart.prototype = {
 	 * 画分时
 	 */
 	paintMins: function() {
-		var data = this.data;
-		var ctx = this.ctx;
-		var options = this.options;
+		var vkChart = this;
 		//画边框
-		ctx.beginPath();
-		ctx.strokeStyle = options.borderColor;
-		ctx.rect(options.region.x, options.region.y, options.region.width, options.region.height);
-		ctx.stroke();
+		vkChart.ctx.beginPath();
+		vkChart.ctx.strokeStyle = vkChart.options.borderColor;
+		vkChart.ctx.rect(vkChart.options.region.x, vkChart.options.region.y, vkChart.options.region.width, vkChart.options.region.height);
+		vkChart.ctx.stroke();
 		//水平线
-		var horizontalMiddleIndex = (options.horizontalLineCount + options.horizontalLineCount % 2) / 2;
-		var horizontalSplitCount = options.horizontalLineCount + 1;
-		for (var i = 1; i <= options.horizontalLineCount; i++) {
-			var color = (i == horizontalMiddleIndex ? options.middleLineColor : options.otherSplitLineColor);
-			var y = options.region.y + options.region.height * i / horizontalSplitCount;
-			VKChart.Util.paintLine(ctx, options.region.x, y, options.region.width, y, color);
+		var horizontalMiddleIndex = (vkChart.options.horizontalLineCount + vkChart.options.horizontalLineCount % 2) / 2;
+		var horizontalSplitCount = vkChart.options.horizontalLineCount + 1;
+		for (var i = 1; i <= vkChart.options.horizontalLineCount; i++) {
+			var color = (i == horizontalMiddleIndex ? vkChart.options.middleLineColor : vkChart.options.otherSplitLineColor);
+			var y = vkChart.options.region.y + vkChart.options.region.height * i / horizontalSplitCount;
+			VKChart.Util.paintLine(vkChart.ctx, vkChart.options.region.x, y, vkChart.options.region.width, y, color);
 		}
 		//垂直线 
-		var verticalSplitCount = options.verticalLineCount + 1;
-		for (var i = 1; i <= options.verticalLineCount; i++) {
-			var x = options.region.x + options.region.width * i / verticalSplitCount;
-			VKChart.Util.paintLine(ctx, x, options.region.y, x, options.region.y + options.region.height, options.otherSplitLineColor);
+		var verticalSplitCount = vkChart.options.verticalLineCount + 1;
+		for (var i = 1; i <= vkChart.options.verticalLineCount; i++) {
+			var x = vkChart.options.region.x + vkChart.options.region.width * i / verticalSplitCount;
+			VKChart.Util.paintLine(vkChart.ctx, x, vkChart.options.region.y, x, vkChart.options.region.y + vkChart.options.region.height, vkChart.options.otherSplitLineColor);
 		}
-		var preClose = data.items[0].close;
-		var maxCloseDiff = 0;
-		var maxVolume = 0;
-		$.each(data.items, function(i, item) {
+		var preClose = vkChart.data.items[0].close;
+		$.each(vkChart.data.items, function(i, item) {
 			var diff = Math.abs(preClose - item.close);
-			maxCloseDiff = Math.max(diff, maxCloseDiff);
-			maxVolume = Math.max(maxVolume, item.volume);
+			vkChart.temp.maxCloseDiff = Math.max(diff, vkChart.temp.maxCloseDiff);
+			vkChart.temp.maxVolume = Math.max(vkChart.temp.maxVolume, item.volume);
 		});
-		this.maxCloseDiff = maxCloseDiff;
-		this.maxVolume = maxVolume;
-		var min = preClose - maxCloseDiff;
+		vkChart.temp.minPrice = preClose - vkChart.temp.maxCloseDiff;
 		//价格线
-		var xSpace = options.region.width / data.items.length;
-		ctx.beginPath();
-		ctx.strokeStyle = options.priceLineColor;
-		ctx.lineWidth = 1;
-		ctx.moveTo(options.region.x, options.region.height / 2 + options.region.y);
-		$.each(data.items, function(i, item) {
-			var x = xSpace * i;
-			var y = options.region.height - ((item.close - min) / 2) / maxCloseDiff * options.region.height + options.region.y;
-			ctx.lineTo(x, y);
+		var xSpace = vkChart.options.region.width / vkChart.data.items.length;
+		vkChart.ctx.beginPath();
+		vkChart.ctx.strokeStyle = vkChart.options.priceLineColor;
+		vkChart.ctx.lineWidth = 1;
+		vkChart.ctx.moveTo(vkChart.options.region.x, vkChart.options.region.height / 2 + vkChart.options.region.y);
+		$.each(vkChart.data.items, function(i, item) {
+			var x = xSpace * i + 0.5 * xSpace;
+			var y = vkChart.options.region.height - ((item.close - vkChart.temp.minPrice) / 2) / vkChart.temp.maxCloseDiff * vkChart.options.region.height + vkChart.options.region.y;
+			vkChart.ctx.lineTo(x, y);
 		});
-		ctx.stroke();
+		vkChart.ctx.stroke();
 		//y轴
 		var scalersLeft = [];
 		var scalersRight = [];
-		var space = maxCloseDiff * 2 / (options.horizontalLineCount + 1);
-		for (var i = options.horizontalLineCount + 1; i >= 0; i--) {
-			var val = min + i * space;
+		var space = vkChart.temp.maxCloseDiff * 2 / (vkChart.options.horizontalLineCount + 1);
+		for (var i = vkChart.options.horizontalLineCount + 1; i >= 0; i--) {
+			var val = vkChart.temp.minPrice + i * space;
 			scalersLeft.push(val.toFixed(2));
 			var percent = (val - preClose) * 100 / preClose;
 			scalersRight.push(percent.toFixed(2) + '%');
 		}
 		for (var i = 0; i < scalersLeft.length; i++) {
-			var y = options.region.y + i * options.region.height / horizontalSplitCount;
-			var color = i < horizontalMiddleIndex ? options.riseColor : (i == horizontalMiddleIndex ? options.normalColor : options.fallColor);
-			ctx.font = options.yScalerFont;
-			ctx.fillStyle = color;
-			ctx.textBaseline = "top";
-			ctx.textAlign = "left";
-			ctx.fillText(scalersLeft[i], 0, y);
+			var y = vkChart.options.region.y + i * vkChart.options.region.height / horizontalSplitCount;
+			var color = i < horizontalMiddleIndex ? vkChart.options.riseColor : (i == horizontalMiddleIndex ? vkChart.options.normalColor : vkChart.options.fallColor);
+			vkChart.ctx.font = vkChart.options.yScalerFont;
+			vkChart.ctx.fillStyle = color;
+			vkChart.ctx.textBaseline = "top";
+			vkChart.ctx.textAlign = "left";
+			vkChart.ctx.fillText(scalersLeft[i], 0, y);
 		}
 		for (var i = 0; i < scalersRight.length; i++) {
-			var y = options.region.y + i * options.region.height / horizontalSplitCount;
-			var color = i < horizontalMiddleIndex ? options.riseColor : (i == horizontalMiddleIndex ? options.normalColor : options.fallColor);
-			ctx.font = options.yScalerFont;
-			ctx.fillStyle = color;
-			ctx.textBaseline = "top";
-			ctx.textAlign = "right";
-			ctx.fillText(scalersRight[i], options.region.width, y);
+			var y = vkChart.options.region.y + i * vkChart.options.region.height / horizontalSplitCount;
+			var color = i < horizontalMiddleIndex ? vkChart.options.riseColor : (i == horizontalMiddleIndex ? vkChart.options.normalColor : vkChart.options.fallColor);
+			vkChart.ctx.font = vkChart.options.yScalerFont;
+			vkChart.ctx.fillStyle = color;
+			vkChart.ctx.textBaseline = "top";
+			vkChart.ctx.textAlign = "right";
+			vkChart.ctx.fillText(scalersRight[i], vkChart.options.region.width, y);
 		}
-		var that = this;
-		$('#vkContent canvas').bind('touchstart', function(e) {
+		vkChart.vkContent.bind('touchstart', function(e) {
 			e.preventDefault();
 		})
-		$('#vkContent canvas').bind('touchmove', function(e) {
-			var x = e.originalEvent.changedTouches[0].clientX - $('#vkContent').offset().left;
-			var index = Math.round(x / options.region.width * data.items.length);
-			var y = options.region.height - ((data.items[index].close - min) / 2) / maxCloseDiff * options.region.height + options.region.y;
-			that.paintTopText(index);
-			$('#vkY').css('display', 'block');
-			$('#vkX').css('display', 'block');
-			$('#vkY').css('left', x);
-			$('#vkX').css('top', y);
+		vkChart.vkContent.bind('mousemove touchmove', function(e) {
+			var pos = 0;
+			if (e.type == "mousemove") {
+				pos = e.clientX - vkChart.vkContent.offset().left;
+			} else {
+				pos = e.originalEvent.changedTouches[0].clientX - vkChart.vkContent.offset().left;
+			}
+			var index = Math.floor(pos / vkChart.options.region.width * vkChart.data.items.length);
+			index = index >= vkChart.data.items.length ? vkChart.data.items.length - 1 : index;
+			var x = index * vkChart.options.region.width / vkChart.data.items.length + vkChart.options.region.width / vkChart.data.items.length / 2;
+			var y = vkChart.options.region.height - ((vkChart.data.items[index].close - vkChart.temp.minPrice) / 2) / vkChart.temp.maxCloseDiff * vkChart.options.region.height + vkChart.options.region.y - 0.5;
+			vkChart.paintTopText(index);
+			vkChart.vkContent.find('#vkY').css('display', 'block');
+			vkChart.vkContent.find('#vkX').css('display', 'block');
+			vkChart.vkContent.find('#vkY').css('left', x);
+			vkChart.vkContent.find('#vkX').css('top', y);
 		});
-		$('#vkContent canvas').bind('mousemove', function(e) {
-			var x = e.clientX - $('#vkContent').offset().left;
-			var index = Math.round(x / options.region.width * data.items.length);
-			var y = options.region.height - ((data.items[index].close - min) / 2) / maxCloseDiff * options.region.height + options.region.y;
-			that.paintTopText(index);
-			$('#vkY').css('display', 'block');
-			$('#vkX').css('display', 'block');
-			$('#vkY').css('left', x);
-			$('#vkX').css('top', y);
-		});
-		$('#vkContent canvas').bind('touchend mouseleave', function(e) {
-			that.paintTopText();
-			$('#vkY').css('display', 'none');
-			$('#vkX').css('display', 'none');
+		vkChart.vkContent.bind('touchend mouseleave', function(e) {
+			vkChart.paintTopText();
+			vkChart.vkContent.find('#vkY').css('display', 'none');
+			vkChart.vkContent.find('#vkX').css('display', 'none');
 		});
 	},
 	/**
 	 * 画K线
 	 */
 	paintKline: function() {
-		var data = this.data;
-		var ctx = this.ctx;
-		var options = this.options;
+		var vkChart = this;
 		//画边框
-		ctx.beginPath();
-		ctx.strokeStyle = options.borderColor;
-		ctx.rect(options.region.x, options.region.y, options.region.width, options.region.height);
-		ctx.stroke();
+		vkChart.ctx.beginPath();
+		vkChart.ctx.strokeStyle = vkChart.options.borderColor;
+		vkChart.ctx.rect(vkChart.options.region.x, vkChart.options.region.y, vkChart.options.region.width, vkChart.options.region.height);
+		vkChart.ctx.stroke();
 		//水平线
-		var horizontalMiddleIndex = (options.horizontalLineCount + options.horizontalLineCount % 2) / 2;
-		var horizontalSplitCount = options.horizontalLineCount + 1;
-		for (var i = 1; i <= options.horizontalLineCount; i++) {
-			var color = (i == horizontalMiddleIndex ? options.middleLineColor : options.otherSplitLineColor);
-			var y = options.region.y + options.region.height * i / horizontalSplitCount;
-			VKChart.Util.paintLine(ctx, options.region.x, y, options.region.width, y, color);
+		var horizontalMiddleIndex = (vkChart.options.horizontalLineCount + vkChart.options.horizontalLineCount % 2) / 2;
+		var horizontalSplitCount = vkChart.options.horizontalLineCount + 1;
+		for (var i = 1; i <= vkChart.options.horizontalLineCount; i++) {
+			var color = (i == vkChart.horizontalMiddleIndex ? vkChart.options.middleLineColor : vkChart.options.otherSplitLineColor);
+			var y = vkChart.options.region.y + vkChart.options.region.height * i / horizontalSplitCount;
+			VKChart.Util.paintLine(vkChart.ctx, vkChart.options.region.x, y, vkChart.options.region.width, y, color);
 		}
 		//垂直线 
-		var verticalSplitCount = options.verticalLineCount + 1;
-		for (var i = 1; i <= options.verticalLineCount; i++) {
-			var x = options.region.x + options.region.width * i / verticalSplitCount;
-			VKChart.Util.paintLine(ctx, x, options.region.y, x, options.region.y + options.region.height, options.otherSplitLineColor);
+		var verticalSplitCount = vkChart.options.verticalLineCount + 1;
+		for (var i = 1; i <= vkChart.options.verticalLineCount; i++) {
+			var x = vkChart.options.region.x + vkChart.options.region.width * i / verticalSplitCount;
+			VKChart.Util.paintLine(vkChart.ctx, x, vkChart.options.region.y, x, vkChart.options.region.y + vkChart.options.region.height, vkChart.options.otherSplitLineColor);
 		}
-		var preClose = data.items[0].close;
-		var maxDiff = 0;
-		var maxVolume = 0;
+		var preClose = vkChart.data.items[0].close;
 		$.each(data.items, function(i, item) {
 			var highDiff = Math.abs(preClose - item.high);
 			var lowDiff = Math.abs(preClose - item.low);
 			var diff = Math.max(highDiff, lowDiff);
-			maxDiff = Math.max(diff, maxDiff);
-			maxVolume = Math.max(maxVolume, item.volume);
+			vkChart.temp.maxDiff = Math.max(diff, vkChart.temp.maxDiff);
+			vkChart.temp.maxVolume = Math.max(vkChart.temp.maxVolume, item.volume);
 		});
-		maxDiff = maxDiff * 1.2;
-		this.maxDiff = maxDiff;
-		this.maxVolume = maxVolume;
-		var min = preClose - maxDiff;
-		this.min = min;
+		vkChart.temp.minPrice = preClose - vkChart.temp.maxDiff;
 		//价格线
-		var xSpace = options.region.width / data.items.length;
-		ctx.beginPath();
-		ctx.strokeStyle = options.priceLineColor;
-		ctx.lineWidth = 1;
-		ctx.moveTo(options.region.x, options.region.height / 2 + options.region.y);
-		var barWidth = options.region.width / data.items.length * 0.8;
-		$.each(data.items, function(i, item) {
+		var xSpace = vkChart.options.region.width / vkChart.data.items.length;
+		vkChart.ctx.beginPath();
+		vkChart.ctx.strokeStyle = vkChart.options.priceLineColor;
+		vkChart.ctx.lineWidth = 1;
+		vkChart.ctx.moveTo(vkChart.options.region.x, vkChart.options.region.height / 2 + vkChart.options.region.y);
+		var barWidth = vkChart.options.region.width / vkChart.data.items.length * 0.8;
+		$.each(vkChart.data.items, function(i, item) {
 			var x = xSpace * i;
-			var highY = options.region.height - ((item.high - min) / 2) / maxDiff * options.region.height + options.region.y;
-			var lowY = options.region.height - ((item.low - min) / 2) / maxDiff * options.region.height + options.region.y;
-			var openY = options.region.height - ((item.open - min) / 2) / maxDiff * options.region.height + options.region.y;
-			var closeY = options.region.height - ((item.close - min) / 2) / maxDiff * options.region.height + options.region.y;
+			var highY = vkChart.options.region.height - ((item.high - vkChart.temp.minPrice) / 2) / vkChart.temp.maxDiff * vkChart.options.region.height + vkChart.options.region.y;
+			var lowY = vkChart.options.region.height - ((item.low - vkChart.temp.minPrice) / 2) / vkChart.temp.maxDiff * vkChart.options.region.height + vkChart.options.region.y;
+			var openY = vkChart.options.region.height - ((item.open - vkChart.temp.minPrice) / 2) / vkChart.temp.maxDiff * vkChart.options.region.height + vkChart.options.region.y;
+			var closeY = vkChart.options.region.height - ((item.close - vkChart.temp.minPrice) / 2) / vkChart.temp.maxDiff * vkChart.options.region.height + vkChart.options.region.y;
 			var isRise = item.close > item.open;
 			var isFall = item.close < item.open;
-			var color = isRise ? options.riseColor : (isFall ? options.fallColor : options.normalColor);
-			VKChart.Util.paintLine(ctx, x + barWidth * 0.6, highY, x + barWidth * 0.6, lowY, color);
-			ctx.fillStyle = color;
+			var color = isRise ? vkChart.options.riseColor : (isFall ? vkChart.options.fallColor : vkChart.options.normalColor);
+			VKChart.Util.paintLine(vkChart.ctx, x + barWidth * 0.6, highY, x + barWidth * 0.6, lowY, color);
+			vkChart.ctx.fillStyle = color;
 			if (isRise) {
-				ctx.fillRect(x + barWidth * 0.1, closeY, barWidth, (openY - closeY) < 1 ? 1 : openY - closeY);
+				vkChart.ctx.fillRect(x + barWidth * 0.1, closeY, barWidth, (openY - closeY) < 1 ? 1 : openY - closeY);
 			} else {
-				ctx.fillRect(x + barWidth * 0.1, openY, barWidth, (closeY - openY) < 1 ? 1 : closeY - openY);
+				vkChart.ctx.fillRect(x + barWidth * 0.1, openY, barWidth, (closeY - openY) < 1 ? 1 : closeY - openY);
 			}
 		});
 		//y轴
 		var scalersLeft = [];
 		var scalersRight = [];
-		var space = maxDiff * 2 / (options.horizontalLineCount + 1);
-		for (var i = options.horizontalLineCount + 1; i >= 0; i--) {
-			var val = min + i * space;
+		var space = vkChart.temp.maxDiff * 2 / (vkChart.options.horizontalLineCount + 1);
+		for (var i = vkChart.options.horizontalLineCount + 1; i >= 0; i--) {
+			var val = vkChart.temp.minPrice + i * space;
 			scalersLeft.push(val.toFixed(2));
 			var percent = (val - preClose) * 100 / preClose;
 			scalersRight.push(percent.toFixed(2) + '%');
 		}
 		for (var i = 0; i < scalersLeft.length; i++) {
-			var y = options.region.y + i * options.region.height / horizontalSplitCount;
-			var color = i < horizontalMiddleIndex ? options.riseColor : (i == horizontalMiddleIndex ? options.normalColor : options.fallColor);
-			ctx.font = options.yScalerFont;
-			ctx.fillStyle = color;
-			ctx.textBaseline = "top";
-			ctx.textAlign = "left";
-			ctx.fillText(scalersLeft[i], 0, y);
+			var y = vkChart.options.region.y + i * vkChart.options.region.height / horizontalSplitCount;
+			var color = i < horizontalMiddleIndex ? vkChart.options.riseColor : (i == horizontalMiddleIndex ? vkChart.options.normalColor : vkChart.options.fallColor);
+			vkChart.ctx.font = vkChart.options.yScalerFont;
+			vkChart.ctx.fillStyle = color;
+			vkChart.ctx.textBaseline = "top";
+			vkChart.ctx.textAlign = "left";
+			vkChart.ctx.fillText(scalersLeft[i], 0, y);
 		}
 		for (var i = 0; i < scalersRight.length; i++) {
-			var y = options.region.y + i * options.region.height / horizontalSplitCount;
-			var color = i < horizontalMiddleIndex ? options.riseColor : (i == horizontalMiddleIndex ? options.normalColor : options.fallColor);
-			ctx.font = options.yScalerFont;
-			ctx.fillStyle = color;
-			ctx.textBaseline = "top";
-			ctx.textAlign = "right";
-			ctx.fillText(scalersRight[i], options.region.width, y);
+			var y = vkChart.options.region.y + i * vkChart.options.region.height / horizontalSplitCount;
+			var color = i < horizontalMiddleIndex ? vkChart.options.riseColor : (i == horizontalMiddleIndex ? vkChart.options.normalColor : vkChart.options.fallColor);
+			vkChart.ctx.font = vkChart.options.yScalerFont;
+			vkChart.ctx.fillStyle = color;
+			vkChart.ctx.textBaseline = "top";
+			vkChart.ctx.textAlign = "right";
+			vkChart.ctx.fillText(scalersRight[i], vkChart.options.region.width, y);
 		}
 	},
 	/**
@@ -444,93 +420,82 @@ VKChart.prototype = {
 	 * 绑定事件
 	 */
 	bindEvent: function() {
-		var vkChart=this;
-		var data = this.data;
-		var options = this.options;
-//		var min = this.min;
-//		var maxDiff = this.maxDiff;
-		//that为当前klineChart
-		var that = this;
-		var vkContent = $('#' + this.contentId);
-		vkContent.bind('touchstart', function(e) {
+		var vkChart = this;
+		vkChart.vkContent.bind('touchstart', function(e) {
 			e.preventDefault();
-			VKChart.Temp.startX = e.originalEvent.changedTouches[0].clientX - $('#vkContent').offset().left;
-			VKChart.Temp.startY = e.originalEvent.changedTouches[0].clientY - $('#vkContent').offset().top;
-			VKChart.Temp.startTime = (new Date()).getTime();
+			vkChart.temp.startX = e.originalEvent.changedTouches[0].clientX - vkChart.vkContent.offset().left;
+			vkChart.temp.startY = e.originalEvent.changedTouches[0].clientY - vkChart.vkContent.offset().top;
+			vkChart.temp.startTime = (new Date()).getTime();
 		});
-		vkContent.bind('touchend', function(e) {
-			var endX = e.originalEvent.changedTouches[0].clientX - $('#vkContent').offset().left;
-			var endY = e.originalEvent.changedTouches[0].clientY - $('#vkContent').offset().top;
-			var endTime = (new Date()).getTime();
-			canvasWidth = $("#" + that.contentId).width();
-			canvasHeight = $("#" + that.contentId).height();
-			canvasWidth = Number(canvasWidth);
-			//左右移动时产生的增量
-			var xIncrement = Math.abs(Math.round((VKChart.Temp.startX - endX) / canvasWidth * VKChart.Temp.dataShowCount));
-			if ((VKChart.Temp.startX - endX) / canvasWidth > 0.3 && (endTime - VKChart.Temp.startTime) < 1000) {
-				var isPaint = false;
-				if (VKChart.Temp.dataEndIndex < (that.allData.items.length - xIncrement - 1)) {
-					VKChart.Temp.dataEndIndex = VKChart.Temp.dataEndIndex + xIncrement;
-					isPaint = true;
-				} else {
-					if (VKChart.Temp.dataEndIndex != (that.allData.items.length - 1)) {
-						VKChart.Temp.dataEndIndex = that.allData.items.length - 1;
+		vkChart.vkContent.bind('touchend', function(e) {
+				var endX = e.originalEvent.changedTouches[0].clientX - vkChart.vkContent.offset().left;
+				var endY = e.originalEvent.changedTouches[0].clientY - vkChart.vkContent.offset().top;
+				var endTime = (new Date()).getTime();
+				canvasWidth = vkChart.vkContent.width();
+				canvasHeight = vkChart.vkContent.height();
+				canvasWidth = Number(canvasWidth);
+				//左右移动时产生的增量
+				var xIncrement = Math.abs(Math.round((vkChart.temp.startX - endX) / canvasWidth * vkChart.temp.dataShowCount));
+				if ((vkChart.temp.startX - endX) / canvasWidth > 0.3 && (endTime - vkChart.temp.startTime) < 1000) {
+					var isPaint = false;
+					if (vkChart.temp.dataEndIndex < (vkChart.allData.items.length - xIncrement - 1)) {
+						vkChart.temp.dataEndIndex = vkChart.temp.dataEndIndex + xIncrement;
 						isPaint = true;
+					} else {
+						if (vkChart.temp.dataEndIndex != (vkChart.allData.items.length - 1)) {
+							vkChart.temp.dataEndIndex = vkChart.allData.items.length - 1;
+							isPaint = true;
+						}
+					}
+					if (isPaint) {
+						vkChart.repaint(vkChart.allData, VKChart.Type.kline);
+					}
+				} else if ((vkChart.temp.startX - endX) / canvasWidth < -0.3 && (endTime - vkChart.temp.startTime) < 1000) {
+					if (vkChart.temp.dataEndIndex > vkChart.temp.dataShowCount + xIncrement) {
+						vkChart.temp.dataEndIndex = vkChart.temp.dataEndIndex - xIncrement;
+						isPaint = true;
+					} else {
+						if (vkChart.temp.dataEndIndex > vkChart.temp.dataShowCount) {
+							vkChart.temp.dataEndIndex = vkChart.temp.dataShowCount;
+							isPaint = true;
+						}
+					}
+					if (isPaint) {
+						vkChart.repaint(vkChart.allData, VKChart.Type.kline);
+					}
+				} else if ((vkChart.temp.startY - endY) / canvasHeight < -0.35 && (endTime - vkChart.temp.startTime) < 1000) {
+					if (Math.floor(vkChart.temp.dataShowCount * 1.5 - 1) <= vkChart.temp.dataEndIndex) {
+						vkChart.temp.dataShowCount = Math.floor(vkChart.temp.dataShowCount * 1.5);
+						vkChart.repaint(vkChart.allData, VKChart.Type.kline);
+					}
+				} else if ((vkChart.temp.startY - endY) / canvasHeight > 0.35 && (endTime - vkChart.temp.startTime) < 1000) {
+					if (Math.floor(vkChart.temp.dataShowCount * 0.7) > 5) {
+						vkChart.temp.dataShowCount = Math.floor(vkChart.temp.dataShowCount * 0.7);
+						vkChart.repaint(vkChart.allData, VKChart.Type.kline);
 					}
 				}
-				if (isPaint) {
-					that.repaint(that.allData, VKChart.Type.kline);
-				}
-			} else if ((VKChart.Temp.startX - endX) / canvasWidth < -0.3 && (endTime - VKChart.Temp.startTime) < 1000) {
-				if (VKChart.Temp.dataEndIndex > VKChart.Temp.dataShowCount + xIncrement) {
-					VKChart.Temp.dataEndIndex = VKChart.Temp.dataEndIndex - xIncrement;
-					isPaint = true;
-				} else {
-					if (VKChart.Temp.dataEndIndex > VKChart.Temp.dataShowCount) {
-						VKChart.Temp.dataEndIndex = VKChart.Temp.dataShowCount;
-						isPaint = true;
-					}
-				}
-				if (isPaint) {
-					that.repaint(that.allData, VKChart.Type.kline);
-				}
-			} else if ((VKChart.Temp.startY - endY) / canvasHeight < -0.35 && (endTime - VKChart.Temp.startTime) < 1000) {
-				if (Math.floor(VKChart.Temp.dataShowCount * 1.5 - 1) <= VKChart.Temp.dataEndIndex) {
-					VKChart.Temp.dataShowCount = Math.floor(VKChart.Temp.dataShowCount * 1.5);
-					that.repaint(that.allData, VKChart.Type.kline);
-				}
-			} else if ((VKChart.Temp.startY - endY) / canvasHeight > 0.35 && (endTime - VKChart.Temp.startTime) < 1000) {
-				if (Math.floor(VKChart.Temp.dataShowCount * 0.7) > 5) {
-					VKChart.Temp.dataShowCount = Math.floor(VKChart.Temp.dataShowCount * 0.7);
-					that.repaint(that.allData, VKChart.Type.kline);
-				}
+		});
+		vkChart.vkContent.bind('mousemove touchmove', function(e) {
+			var pos = 0;
+			if (e.type == "mousemove") {
+				pos = e.clientX - vkChart.vkContent.offset().left;
+			} else {
+				pos = e.originalEvent.changedTouches[0].clientX - vkChart.vkContent.offset().left;
 			}
+			var index = Math.floor(pos / vkChart.options.region.width * vkChart.data.items.length);
+			index = index >= vkChart.data.items.length ? vkChart.data.items.length - 1 : index;
+			var x = index * vkChart.options.region.width / vkChart.data.items.length + vkChart.options.region.width / vkChart.data.items.length / 2;
+			var y = vkChart.options.region.height - ((vkChart.data.items[index].close - vkChart.temp.minPrice) / 2) / vkChart.temp.maxDiff * vkChart.options.region.height + vkChart.options.region.y - 1;
+			vkChart.paintTopText(index);
+			vkChart.vkContent.find('#vkY').css('display', 'block');
+			vkChart.vkContent.find('#vkX').css('display', 'block');
+			vkChart.vkContent.find('#vkY').css('left', x);
+			vkChart.vkContent.find('#vkX').css('top', y);
 		});
-		vkContent.bind('touchmove', function(e) {
-			var index = Math.floor((e.originalEvent.changedTouches[0].clientX - $('#vkContent').offset().left) / (options.region.width / data.items.length));
-			var x = index * options.region.width / data.items.length + options.region.width / data.items.length / 2;
-			var y = options.region.height - ((data.items[index].close - vkChart.min) / 2) / vkChart.maxDiff * options.region.height + options.region.y - 1;
-			that.paintTopText(index);
-			$('#vkY').css('display', 'block');
-			$('#vkX').css('display', 'block');
-			$('#vkY').css('left', x);
-			$('#vkX').css('top', y);
-			var x = e.originalEvent.changedTouches[0].clientX - $('#vkContent').offset().left;
-		});
-		vkContent.bind('mousemove', function(e) {
-			var index = Math.floor((e.clientX - $('#vkContent').offset().left) / (options.region.width / data.items.length));
-			var x = index * options.region.width / data.items.length + options.region.width / data.items.length / 2;
-			var y = options.region.height - ((data.items[index].close - vkChart.min) / 2) / vkChart.maxDiff * options.region.height + options.region.y - 1;
-			that.paintTopText(index);
-			$('#vkY').css('display', 'block');
-			$('#vkX').css('display', 'block');
-			$('#vkY').css('left', x);
-			$('#vkX').css('top', y);
-		});
-		vkContent.bind('touchend mouseleave', function(e) {
-			that.paintTopText();
-			$('#vkY').css('display', 'none');
-			$('#vkX').css('display', 'none');
+		vkChart.vkContent.bind('touchend mouseleave', function(e) {
+			vkChart.paintTopText();
+			vkChart.vkContent.find('#vkY').css('display', 'none');
+			vkChart.vkContent.find('#vkX').css('display', 'none');
 		});
 	}
 }

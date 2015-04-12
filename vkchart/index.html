@@ -14,16 +14,22 @@
 
 	<body style="margin: 0 2px;background:#362A38;">
 		<div id="tip" style="text-align: center;line-height: 50px;color: wheat;">请在手机上查看</div>
-		<div id="vkContent" style="width: 100%;height: 300px; position: relative;border: 1px solid tomato; ">
+		<div id="vkContent1" style="width: 80%;height: 300px; position: relative;border: 1px solid tomato; ">
 		</div>
-
+		<div id="vkContent2" style="width: 80%;height: 300px; position: relative;border: 1px solid tomato; ">
+		</div>
 		<script type="text/javascript">
-			var chart = new VKChart('vkContent');
+			var chart1 = new VKChart('vkContent1');
 //			chart.options.dateTimeType='date';
 			var data = getQuote();
 			data.items = data.items.reverse();
-//			chart.paint(data,VKChart.Type.kline);
-			chart.paint(data,VKChart.Type.mins);
+			chart1.paint(data,VKChart.Type.mins);
+			
+			var chart2 = new VKChart('vkContent2');
+//			chart.options.dateTimeType='date';
+			var data = getQuote();
+			data.items = data.items.reverse();
+			chart2.paint(data,VKChart.Type.kline);
 		</script>
 
 	</body>
