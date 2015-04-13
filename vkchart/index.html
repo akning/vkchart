@@ -19,17 +19,20 @@
 		<div id="vkContent2" style="width: 80%;height: 300px; position: relative;border: 1px solid tomato; ">
 		</div>
 		<script type="text/javascript">
+			//画分时图
 			var chart1 = new VKChart('vkContent1');
 //			chart.options.dateTimeType='date';
 			var data = getQuote();
 			data.items = data.items.reverse();
 			chart1.paint(data,VKChart.Type.mins);
 			
+			//画K线图
 			var chart2 = new VKChart('vkContent2');
 //			chart.options.dateTimeType='date';
 			var data = getQuote();
 			data.items = data.items.reverse();
 			chart2.paint(data,VKChart.Type.kline);
+			
 		</script>
 
 	</body>

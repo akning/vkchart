@@ -8,7 +8,7 @@ function VKChart(contentId) {
 			startX: 0,
 			startTime: 0,
 			//显示的数据条数
-			dataShowCount: 15,
+			dataShowCount: 30,
 			dataEndIndex: -1,
 			minPrice: 0,
 			maxDiff: 0,
@@ -148,10 +148,10 @@ VKChart.prototype = {
 	paintVolume: function() {
 		var vkChart = this;
 		$.each(vkChart.data.items, function(i, item) {
-			var w = vkChart.options.region.width / vkChart.data.items.length;
-			var h = item.volume / vkChart.temp.maxVolume * vkChart.options.volumeHeight - vkChart.options.volumeMarginTop;
-			var x = w * i + w * 0.1;
-			w = w * 0.8;
+			var oneWidth = vkChart.options.region.width / vkChart.data.items.length;
+			var h = item.volume / vkChart.temp.maxVolume * (vkChart.options.volumeHeight- vkChart.options.volumeMarginTop);
+			var x = oneWidth * i + oneWidth * 0.1;
+			var w = oneWidth * 0.8;
 			var y = vkChart.options.volumeHeight - h + vkChart.options.region.y + vkChart.options.region.height;
 			var close = item.close;
 			var preClose = (i == 0 ? item.close : vkChart.data.items[i - 1].close);
@@ -265,10 +265,10 @@ VKChart.prototype = {
 			vkChart.ctx.textAlign = "right";
 			vkChart.ctx.fillText(scalersRight[i], vkChart.options.region.width, y);
 		}
-		vkChart.vkContent.bind('touchstart', function(e) {
+		vkChart.vkContent.find("canvas").bind('touchstart', function(e) {
 			e.preventDefault();
 		})
-		vkChart.vkContent.bind('mousemove touchmove', function(e) {
+		vkChart.vkContent.find("canvas").bind('mousemove touchmove', function(e) {
 			var pos = 0;
 			if (e.type == "mousemove") {
 				pos = e.clientX - vkChart.vkContent.offset().left;
@@ -285,7 +285,7 @@ VKChart.prototype = {
 			vkChart.vkContent.find('#vkY').css('left', x);
 			vkChart.vkContent.find('#vkX').css('top', y);
 		});
-		vkChart.vkContent.bind('touchend mouseleave', function(e) {
+		vkChart.vkContent.find("canvas").bind('touchend mouseleave', function(e) {
 			vkChart.paintTopText();
 			vkChart.vkContent.find('#vkY').css('display', 'none');
 			vkChart.vkContent.find('#vkX').css('display', 'none');
@@ -316,7 +316,7 @@ VKChart.prototype = {
 			VKChart.Util.paintLine(vkChart.ctx, x, vkChart.options.region.y, x, vkChart.options.region.y + vkChart.options.region.height, vkChart.options.otherSplitLineColor);
 		}
 		var preClose = vkChart.data.items[0].close;
-		$.each(data.items, function(i, item) {
+		$.each(vkChart.data.items, function(i, item) {
 			var highDiff = Math.abs(preClose - item.high);
 			var lowDiff = Math.abs(preClose - item.low);
 			var diff = Math.max(highDiff, lowDiff);
@@ -421,13 +421,13 @@ VKChart.prototype = {
 	 */
 	bindEvent: function() {
 		var vkChart = this;
-		vkChart.vkContent.bind('touchstart', function(e) {
+		vkChart.vkContent.find("canvas").bind('touchstart', function(e) {
 			e.preventDefault();
 			vkChart.temp.startX = e.originalEvent.changedTouches[0].clientX - vkChart.vkContent.offset().left;
 			vkChart.temp.startY = e.originalEvent.changedTouches[0].clientY - vkChart.vkContent.offset().top;
 			vkChart.temp.startTime = (new Date()).getTime();
 		});
-		vkChart.vkContent.bind('touchend', function(e) {
+		vkChart.vkContent.find("canvas").bind('touchend', function(e) {
 				var endX = e.originalEvent.changedTouches[0].clientX - vkChart.vkContent.offset().left;
 				var endY = e.originalEvent.changedTouches[0].clientY - vkChart.vkContent.offset().top;
 				var endTime = (new Date()).getTime();
@@ -475,7 +475,7 @@ VKChart.prototype = {
 					}
 				}
 		});
-		vkChart.vkContent.bind('mousemove touchmove', function(e) {
+		vkChart.vkContent.find("canvas").bind('mousemove touchmove', function(e) {
 			var pos = 0;
 			if (e.type == "mousemove") {
 				pos = e.clientX - vkChart.vkContent.offset().left;
@@ -492,7 +492,7 @@ VKChart.prototype = {
 			vkChart.vkContent.find('#vkY').css('left', x);
 			vkChart.vkContent.find('#vkX').css('top', y);
 		});
-		vkChart.vkContent.bind('touchend mouseleave', function(e) {
+		vkChart.vkContent.find("canvas").bind('touchend mouseleave', function(e) {
 			vkChart.paintTopText();
 			vkChart.vkContent.find('#vkY').css('display', 'none');
 			vkChart.vkContent.find('#vkX').css('display', 'none');
